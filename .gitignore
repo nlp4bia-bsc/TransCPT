@@ -1,0 +1,7 @@
+logs/*
+models/*
+data/*
+__pycache__
+!data/.gitkeep
+!logs/.gitkeep
+!models/.gitkeep
