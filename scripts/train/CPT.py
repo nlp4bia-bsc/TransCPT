@@ -39,11 +39,7 @@ n_warmup_steps = 0
 model_name = "CardioBERTa"
 model_output = os.path.join("models", model_name, current_time)   # Directory to save the models
 
-# writer_train = SummaryWriter(log_dir=os.path.join(model_output, "runs/train"))
-# writer_eval = SummaryWriter(log_dir=os.path.join(model_output, "runs/eval"))
-# accelerator = Accelerator(log_with="tensorboard", project_dir='./output')
-
-from accelerate.utils import LoggerType
+#################################################### INITIALIZATION #########################################################
 # Initialize accelerator for training
 accelerator = Accelerator(log_with="tensorboard", project_dir=model_output)
 accelerator.init_trackers("runs")
