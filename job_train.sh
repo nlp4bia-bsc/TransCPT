@@ -20,4 +20,4 @@ source ~/.bashrc  # This reloads the shell to apply conda settings
 
 conda activate cardioberta2
 
-accelerate launch scripts/train/CPT.py
+accelerate launch --config_file ./mn5_config.yaml scripts/train/CPT.py 

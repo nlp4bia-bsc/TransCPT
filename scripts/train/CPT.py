@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from datasets import load_from_disk
+import datasets
 from transformers import AutoTokenizer, DataCollatorForLanguageModeling
 import torch
 from torch.utils.data import DataLoader
@@ -56,8 +56,9 @@ logger.info("Loading the dataset")
 logger.info("="*50)
 
 logger.info(f"Loading dataset from {data_path}")
-data = load_from_disk(data_path)
-
+# data = load_from_disk(data_path)                  # Because computing nodes don't have internet access
+data = datasets.load_dataset("DT4H/wikipedia_cardiology_es")
+# cd /gpfs/projects/bsc14/abecerr1/datasets/DT4H___wikipedia_cardiology_es/default/0.0.0/b20f70bf02ea8c0f5e0181e333b7b9ab3c610c4f/
 #################################################### TOKENIZATION #########################################################
 logger.info("="*50)
 logger.info("Tokenizing the dataset")
