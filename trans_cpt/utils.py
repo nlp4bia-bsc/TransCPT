@@ -1,8 +1,31 @@
-from transformers import pipeline
+import numpy as np # type: ignore
+import logging
 import random
-import numpy as np
-import torch
+import torch # type: ignore
 
+from accelerate import Accelerator # type: ignore
+
+def set_seed(seed: int):
+    """
+    Set a seed to guarantee reproducibility
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+def get_accelerator(log_with, project_dir):
+    accelerator = Accelerator(log_with=log_with, project_dir=project_dir)
+    accelerator.init_trackers("runs")
+    return accelerator
+
+def get_logger(accelerator):
+    logging_level = logging.INFO if accelerator.is_main_process else logging.WARNING
+    logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging_level)
+    logger = logging.getLogger(__name__)
+    return logger
+    
 def concat_chunk_dataset(data, chunk_size=512):
     """
     Receives data in the form of a dictionary with keys as the column names and values as the list of tokenized text.
@@ -13,6 +36,8 @@ def concat_chunk_dataset(data, chunk_size=512):
 
     **Important**: Chunk size should be less than or equal to 512 and conditions the context window size of the model.
     """
+    if chunk_size > 512:
+        raise ValueError(f"chunk_size {chunk_size} exceeds the default maximum limit of 512 tokens.")
 
     # concatenate tokens id and labels
     concatenated_sequences = {k: sum(data[k], []) for k in data.keys()}
@@ -35,31 +60,16 @@ def concat_chunk_dataset(data, chunk_size=512):
     return result
 
 
-# we shall insert mask randomly in the sentence
-def insert_random_mask(batch, data_collator):
-    features = [dict(zip(batch, t)) for t in zip(*batch.values())]
-    masked_inputs = data_collator(features)
-    # Create a new "masked" column for each column in the dataset
-    return {"masked_" + k: v.numpy() for k, v in masked_inputs.items()}
-
-
-def fill_mask(text, model):
-    pred_model = pipeline("fill-mask", model = model, device="cuda")
-
-    preds = pred_model(text)
-    return preds
-
-
-def set_seed(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-# Load the train dataset for training
 def worker_init_fn(worker_id):
-    # Ensure each worker has a different seed
     seed = torch.initial_seed() % 2**32
     np.random.seed(seed)
     random.seed(seed)
+
+
+def insert_random_mask(batch, data_collator):
+    features = [dict(zip(batch, t)) for t  in zip(*batch.values())]
+    masked_inputs = data_collator(features)
+
+    return {f"masked_{k}": v.numpy() for k, v in masked_inputs.items()}
+
+

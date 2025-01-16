@@ -5,3 +5,4 @@ __pycache__
 !data/.gitkeep
 !logs/.gitkeep
 !models/.gitkeep
+.env
