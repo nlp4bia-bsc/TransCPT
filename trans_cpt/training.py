@@ -27,6 +27,7 @@ from trans_cpt.utils import (
     insert_random_mask,
     set_seed,
     worker_init_fn,
+    fill_mask,
 )
 
 accelerator = None
@@ -68,7 +69,6 @@ def dataset_masking(split_dataset, tokenizer, mlm_probability, pad_to_multiple_o
     mask_function = lambda x: insert_random_mask(x, data_collator)
 
     eval_dataset = split_dataset["test"].map(mask_function, batched=True, remove_columns=split_dataset["test"].column_names)
-    #eval_dataset = eval_dataset.rename_columns({"masked_input_ids": "input_ids", "masked_attention_mask": "attention_mask", "masked_labels": "labels"})
     eval_dataset = eval_dataset.rename_columns({
         "masked_input_ids": "input_ids",
         "masked_attention_mask": "attention_mask",
@@ -120,7 +120,7 @@ def preprocessing(
         batch_size,
         seed,
     )
-    return train_dataloader, eval_dataloader
+    return train_dataloader, eval_dataloader, tokenizer
 
 
 def load_model(model_checkpoint):
@@ -169,10 +169,6 @@ def training(model, optimizer, train_dataloader, eval_dataloader, num_training_s
         total_train_loss = 0
 
         for batch in train_dataloader:
-            for key, tensor in batch.items():
-                if isinstance(tensor, torch.Tensor):
-                    assert tensor.size(1) <= model.config.max_position_embeddings, \
-                        f"Tensor {key} has size {tensor.size(1)}, exceeds {model.config.max_position_embeddings}"
             optimizer.zero_grad()
             outputs = model(**batch)
             loss = outputs.loss
@@ -209,16 +205,49 @@ def training(model, optimizer, train_dataloader, eval_dataloader, num_training_s
         accelerator.log({"Loss": {"valid": avg_eval_loss}}, step=epoch)
         accelerator.log({"Perplexity": {"valid": eval_perplexity}}, step=epoch)
 
+    return model
+
+
+def save_model(model, tokenizer, model_output):
+    print("Saving model")
+    accelerator.wait_for_everyone()  # Ensure all processes are synchronized before saving
+
+    if accelerator.is_main_process:
+        unwrapped_model = accelerator.unwrap_model(model)
+        unwrapped_model.save_pretrained(model_output, save_function=accelerator.save)
+        tokenizer.save_pretrained(model_output, save_function=accelerator.save)
+
+    print(f"Model saved in {model_output}")
+
+
+def inference_pipeline(vars):
+    model_path = vars.get("model_path")
+    text = vars.get("text")
+
+    if not model_path:
+        print("Not model_path assigned")
+        return
+    
+    if not text:
+        print("No text to predict")
+        return
+    
+    preds = fill_mask(text, model_path)
+
+    for pred in preds:
+        print((f">>> {pred['token_str']}({pred['score']}): {pred['sequence']}"))
+
 
 def training_pipeline(vars):
     print(f"Input variables: {vars}")
 
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    chunk_size = 512
+    pad_to_multiple_of = chunk_size
 
     # Get variables
     seed = vars.get("seed", 42)
     mlm_probability = vars.get("mlm_probability", 0.15) # Probability of masking a token
-    # pad_to_multiple_of = vars.get("pad_to_multiple_of", 8) # This value depends on the numeric types that are used. For float16 -> 8, float8 -> 16
     num_train_epochs = vars.get("num_train_epochs", 20)
     batch_size = vars.get("batch_size", 64)
     data_path = vars.get("data_path", "./data/trans_cpt_data/proc")
@@ -227,7 +256,7 @@ def training_pipeline(vars):
     learning_rate = vars.get("learning_rate", 1e-4)
     n_warmup_steps = vars.get("n_warmup_steps", 0)
     model_name = vars.get("model_name", "CardioBERTa") # TODO: Change name of project
-    model_output = os.path.join("models", model_name, current_time)
+    model_output = f"/gpfs/projects/bsc14/storage/models/transcpt/{model_name}_{current_time}"
 
     # Set random to guarantee reproducibility
     set_seed(seed)
@@ -242,12 +271,9 @@ def training_pipeline(vars):
 
     # 2. Load Model
     model = load_model(model_checkpoint)
-    chunk_size = 512 # model.config.max_position_embeddings
-    print(f"Limit of chunk size in model: {chunk_size}")
-    pad_to_multiple_of = chunk_size
     
     # 3. Preprocessing
-    train_dataloader, eval_dataloader = preprocessing(
+    train_dataloader, eval_dataloader, tokenizer = preprocessing(
         data,
         model_checkpoint,
         test_ratio,
@@ -264,6 +290,9 @@ def training_pipeline(vars):
     )
 
     # 5. Training Model
-    training(model, optimizer, train_dataloader, eval_dataloader, num_training_steps, num_train_epochs)
+    model = training(model, optimizer, train_dataloader, eval_dataloader, num_training_steps, num_train_epochs)
+
+    # 6. Save Model
+    save_model(model, tokenizer, model_output)
 
     accelerator.end_training()

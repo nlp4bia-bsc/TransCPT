@@ -4,6 +4,8 @@ import random
 import torch # type: ignore
 
 from accelerate import Accelerator # type: ignore
+from transformers import pipeline # type: ignore
+
 
 def set_seed(seed: int):
     """
@@ -36,8 +38,6 @@ def concat_chunk_dataset(data, chunk_size=512):
 
     **Important**: Chunk size should be less than or equal to 512 and conditions the context window size of the model.
     """
-    if chunk_size > 512:
-        raise ValueError(f"chunk_size {chunk_size} exceeds the default maximum limit of 512 tokens.")
 
     # concatenate tokens id and labels
     concatenated_sequences = {k: sum(data[k], []) for k in data.keys()}
@@ -73,3 +73,8 @@ def insert_random_mask(batch, data_collator):
     return {f"masked_{k}": v.numpy() for k, v in masked_inputs.items()}
 
 
+def fill_mask(text, model):
+    pred_model = pipeline("fill-mask", model = model, device="cuda")
+
+    preds = pred_model(text)
+    return preds
