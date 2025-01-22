@@ -17,7 +17,7 @@ class HuggingfaceRepository(Repository):
         return os.path.join(self.base_path, self.repository, self.dataset_name)
 
     def download_dataset(self):
-        dataset = load_dataset(self.dataset_name, use_auth_token=os.getenv("HF_TOKEN"))
+        dataset = load_dataset(self.dataset_name, token=os.getenv("HF_TOKEN"))
         dataset_path = self.get_dataset_path()
-        os.makediras(dataset_path, exist_oke=True)
+        os.makedirs(dataset_path, exist_ok=True)
         dataset.save_to_disk(dataset_path)
