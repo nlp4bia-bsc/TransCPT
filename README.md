@@ -24,6 +24,8 @@ tensorboard --logdir models/MODEL_NAME/
 ``` 
 
 4. To execute the training you have to execute both cell in the main.ipynb
+    * Make sure you have the .env in the root folder with the `COSMOS_SSH_USER` and `COSMOS_SSH_PASSWORD` to execute the cell in the remote server
+    * Make sure that inside trans_cpt folder you have a .env with `HF_TOKEN` with your huggingface token
 
 Source: https://github.com/ayoolaolafenwa/TrainNLP/blob/main/train_masked_language_model.py
 
