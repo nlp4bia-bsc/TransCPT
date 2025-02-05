@@ -299,13 +299,14 @@ def training_pipeline(vars):
     n_warmup_steps = vars.get("n_warmup_steps", 0)
     model_name = vars.get("model_name", "CardioBERTa")  # TODO: Change name of project
     model_output = f"/gpfs/projects/bsc14/storage/models/transcpt/{model_name}_{current_time}"
+    logs_folder = "./training_logs"
 
     # Set random to guarantee reproducibility
     set_seed(seed)
 
     # Initialize accelerator and logger for training
     global accelerator, logger
-    accelerator = get_accelerator(log_with="tensorboard", project_dir=model_output)
+    accelerator = get_accelerator(log_with="tensorboard", project_dir=logs_folder)
     logger = get_logger(accelerator)
 
     # 1. Get data
