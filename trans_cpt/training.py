@@ -250,8 +250,8 @@ def training(
 
 def monitor_resources():
     import os
-    import psutil
-    import torch.distributed as dist
+    import psutil  # type: ignore
+    import torch.distributed as dist  # type: ignore
 
     process = psutil.Process(os.getpid())
     cpu_percent = process.cpu_percent(interval=1)
@@ -259,7 +259,10 @@ def monitor_resources():
     gpu_memory = torch.cuda.memory_allocated() if torch.cuda.is_available() else 0
     rank = dist.get_rank() if dist.is_initialized() else 0
 
-    print(f"Rank {rank}: CPU: {cpu_percent:.1f}%, Memoria: {memory_percent:.1f}%, GPU: {gpu_memory} bytes")
+    print(
+        f"Rank {rank}: CPU: {cpu_percent:.1f}%, "
+        f"Memoria: {memory_percent:.1f}%, GPU: {gpu_memory} bytes"
+    )
 
 
 def save_model(model, tokenizer, model_output):
@@ -300,7 +303,7 @@ def inference_pipeline(vars):
 
 
 def training_pipeline(vars):
-    import os       
+    import os
     ld_library_path = os.environ.get('LD_LIBRARY_PATH')
     print(f"LD_LIBRARY_PATH: {ld_library_path}")
     print(f"Input variables: {vars}")
