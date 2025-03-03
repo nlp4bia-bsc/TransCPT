@@ -32,7 +32,11 @@ logger = None
 
 def get_dataset(data_path):
     print(f"Loading dataset from {data_path}")
-    data = datasets.load_dataset(data_path)
+    try:
+        data = datasets.load_dataset(data_path)
+    except ValueError:
+        data = datasets.load_from_disk(data_path)
+        
     return data
 
 
