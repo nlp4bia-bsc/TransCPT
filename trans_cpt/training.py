@@ -199,6 +199,7 @@ def training(
     num_training_steps,
     num_train_epochs
 ):
+    accelerator.wait_for_everyone()
     progress_bar = tqdm(range(num_training_steps))
 
     for epoch in range(num_train_epochs):
@@ -251,14 +252,38 @@ def training(
     return model
 
 
+def monitor_resources():
+    import os
+    import psutil  # type: ignore
+    import torch.distributed as dist  # type: ignore
+
+    process = psutil.Process(os.getpid())
+    cpu_percent = process.cpu_percent(interval=1)
+    memory_percent = process.memory_percent()
+    gpu_memory = torch.cuda.memory_allocated() if torch.cuda.is_available() else 0
+    rank = dist.get_rank() if dist.is_initialized() else 0
+
+    print(
+        f"Rank {rank}: CPU: {cpu_percent:.1f}%, "
+        f"Memoria: {memory_percent:.1f}%, GPU: {gpu_memory} bytes"
+    )
+
+
 def save_model(model, tokenizer, model_output):
     print("Saving model")
+    monitor_resources()
     accelerator.wait_for_everyone()  # Ensure all processes are synchronized before saving
-
+    monitor_resources()
     if accelerator.is_main_process:
         unwrapped_model = accelerator.unwrap_model(model)
         unwrapped_model.save_pretrained(model_output, save_function=accelerator.save)
         tokenizer.save_pretrained(model_output, save_function=accelerator.save)
+    monitor_resources()
+    accelerator.wait_for_everyone()
+    # import torch.distributed as dist
+    # if dist.is_initialized():
+    #     dist.barrier()  # Ensure all ranks hit this before exiting
+    #     dist.destroy_process_group()
 
     print(f"Model saved in {model_output}")
 
@@ -282,6 +307,9 @@ def inference_pipeline(vars):
 
 
 def training_pipeline(vars):
+    import os
+    ld_library_path = os.environ.get('LD_LIBRARY_PATH')
+    print(f"LD_LIBRARY_PATH: {ld_library_path}")
     print(f"Input variables: {vars}")
 
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -303,13 +331,14 @@ def training_pipeline(vars):
     n_warmup_steps = vars.get("n_warmup_steps", 0)
     model_name = vars.get("model_name", "CardioBERTa")  # TODO: Change name of project
     model_output = f"/gpfs/projects/bsc14/storage/models/transcpt/{model_name}_{current_time}"
+    logs_folder = "./training_logs"
 
     # Set random to guarantee reproducibility
     set_seed(seed)
 
     # Initialize accelerator and logger for training
     global accelerator, logger
-    accelerator = get_accelerator(log_with="tensorboard", project_dir=model_output)
+    accelerator = get_accelerator(log_with="tensorboard", project_dir=logs_folder)
     logger = get_logger(accelerator)
 
     # 1. Get data
