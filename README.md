@@ -1,32 +1,11 @@
 # TransCPT
 
+This repository use Cosmos Model library to execute a CPT of huggingface models
+
 # Installation
-
-Python version: 3.10.15
-
-Load Anaconda module:
-    
 ```bash
-load module anaconda/2023.07
+pip install -r requirements.txt
  ```
-
-Create a new environment from the `environment.yml` file:
-
-```bash
-conda env create -f environment.yml
-```
-
-Activate the environment:
-
-```bash
-conda activate cardioberta2
-```
-
-After installing things, export the environment:
-
-```bash
-conda env export --no-builds | grep -v "^prefix: " > environment.yaml
-```
 
 # Train a Masked Language Model
 
@@ -36,7 +15,7 @@ conda env export --no-builds | grep -v "^prefix: " > environment.yaml
 accelerate config
 ```
 
-2. [Temporarily]: Run scripts/train/CPT.py adjusting the parameters and paths
+2. Adapt the variables you want to train the model, you can see the variables to adapt in the training_pipeline function of /trans_cpt/training.py
 
 3. To monitor the logs run tensorboard:
 
@@ -44,11 +23,9 @@ accelerate config
 tensorboard --logdir models/MODEL_NAME/
 ``` 
 
-Note: For little data you can directly run it on login node. Otherwise, and to ensure having 4 GPUs, you can submit a job to the cluster:
-
-```bash
-sbatch scripts/job_train.sh
-```
+4. To execute the training you have to execute both cell in the main.ipynb
+    * Make sure you have the .env in the root folder with the `COSMOS_SSH_USER` and `COSMOS_SSH_PASSWORD` to execute the cell in the remote server
+    * Make sure that inside trans_cpt folder you have a .env with `HF_TOKEN` with your huggingface token
 
 Source: https://github.com/ayoolaolafenwa/TrainNLP/blob/main/train_masked_language_model.py
 
